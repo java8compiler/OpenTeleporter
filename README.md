@@ -1,2 +1,2 @@
 # OpenTeleporter
-This addon that adds to OpenComputers teleport.
+OpenTeleporter this addon for OpenComputers adding teleports.
