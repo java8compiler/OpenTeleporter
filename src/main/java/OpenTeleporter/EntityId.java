@@ -22,7 +22,7 @@ public class EntityId {
 
     public void update(){
         time++;
-        if(OpenTeleporter.timeLimit <= time){
+        if(Config.timeLimit <= time){
             live = false;
         }
     }
