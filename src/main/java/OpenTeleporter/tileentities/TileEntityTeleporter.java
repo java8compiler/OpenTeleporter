@@ -1,11 +1,12 @@
 package OpenTeleporter.tileentities;
 
+import OpenTeleporter.Config;
 import OpenTeleporter.EntityId;
 import OpenTeleporter.OpenTeleporter;
 import OpenTeleporter.packet.PacketPlayerPosition;
 import OpenTeleporter.packet.PacketTeleporter;
 import OpenTeleporter.proxy.CommonProxy;
-import li.cil.oc.api.API;
+import li.cil.oc.api.*;
 import li.cil.oc.api.machine.Arguments;
 import li.cil.oc.api.machine.Callback;
 import li.cil.oc.api.machine.Context;
@@ -65,39 +66,37 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 							if(connector.globalBuffer() >= energy){
 								double out = connector.changeBuffer(-energy);
 								if(out > 0){
-									Object[] a = new Object[1];
-									a[0] = "We need more energy.";
-									return a;
+									return new Object[]{"We need more energy."};
 								}
 							}else{
-								Object[] a = new Object[1];
-								a[0] = "We need more energy.";
-								return a;
+								return new Object[]{"We need more energy."};
 							}
 						}
 						teleport = true;
 						TileEntityTeleporter teleporter = (TileEntityTeleporter) n.host();
 						if(world.isAirBlock(teleporter.xCoord, teleporter.yCoord+1, teleporter.zCoord) && world.isAirBlock(teleporter.xCoord, teleporter.yCoord+2, teleporter.zCoord)){
-							List<Entity> entities = world.getEntitiesWithinAABB(Entity.class, AxisAlignedBB.getBoundingBox(xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1));
-							for(int i = 0; i < entities.size(); i++){
+							List<Entity> entities = getEntitiesInBound(Entity.class, worldObj, xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1);
+							if(entities.size() == 0  || entities.size() > Config.entityTeleportationLimit){
+								return new Object[]{"Entity limit."};
+							}
+							for (Entity entity1 : entities) {
 								double dx, dy, dz;
-								Entity entity = entities.get(i);
-								dx = entity.posX - xCoord;
-								dy = entity.posY - yCoord;
-								dz = entity.posZ - zCoord;
-								if(entity instanceof EntityPlayerMP){
-									EntityPlayerMP playerMP = (EntityPlayerMP) entity;
+								dx = entity1.posX - xCoord;
+								dy = entity1.posY - yCoord;
+								dz = entity1.posZ - zCoord;
+								if (entity1 instanceof EntityPlayerMP) {
+									EntityPlayerMP playerMP = (EntityPlayerMP) entity1;
 									double px, py, pz;
 									px = teleporter.xCoord + dx;
 									py = teleporter.yCoord + dy;
 									pz = teleporter.zCoord + dz;
 									playerMP.setPosition(px, py, pz);
 									CommonProxy.wrapper.sendTo(new PacketPlayerPosition(px, py, pz), playerMP);
-									if(OpenTeleporter.logging){
-										OpenTeleporter.logger.info(playerMP.getDisplayName()+"| teleportated of |"+xCoord+" "+yCoord+" "+zCoord+"| at |"+teleporter.zCoord+" "+teleporter.zCoord+" "+teleporter.zCoord);
+									if (Config.logging) {
+										OpenTeleporter.logger.info(playerMP.getDisplayName() + "| teleportated of |" + xCoord + " " + yCoord + " " + zCoord + "| at |" + teleporter.zCoord + " " + teleporter.zCoord + " " + teleporter.zCoord);
 									}
-								}else{
-									entity.setPosition(teleporter.xCoord + dx, teleporter.yCoord + dy, teleporter.zCoord + dz);
+								} else {
+									entity1.setPosition(teleporter.xCoord + dx, teleporter.yCoord + dy, teleporter.zCoord + dz);
 								}
 							}
 						}
@@ -105,11 +104,9 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 					CommonProxy.wrapper.sendToAll(new PacketTeleporter(teleporter.xCoord, teleporter.yCoord, teleporter.zCoord));
 					}
 					if(teleport){
-						Object[] a = new Object[1];
-						a[0] = "teleportation successful";
+						return new Object[]{"teleportation successful"};
 					}else{
-						Object[] a = new Object[1];
-						a[0] = "teleportation failed, teleporter not found.";
+						return new Object[]{"teleportation failed, teleporter not found."};
 					}
 				}
 			}
@@ -132,19 +129,15 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 						if(connector.globalBuffer() >= energy){
 							double out = connector.changeBuffer(-energy);
 							if(out > 0){
-								Object[] aa = new Object[1];
-								a[0] = "We need more energy.";
-								return aa;
+								return new Object[]{"We need more energy."};
 							}
 						}else{
-							Object[] aa = new Object[1];
-							a[0] = "We need more energy.";
-							return aa;
+							return new Object[]{"We need more energy."};
 						}
 					}
 					List<Entity> entities = entityId.entity;
-					if(entities.size() == 0 || entities.size() > OpenTeleporter.entityTeleportationLimit)
-						return null;
+					if(entities.size() == 0 || entities.size() > Config.entityTeleportationLimit)
+						return new Object[]{"Entity limit."};
 					for(int i = 0; i < entities.size(); i++) {
 						double dx, dy, dz;
 						Entity entity = entities.get(i);
@@ -159,7 +152,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 							pz = zCoord + dz;
 							playerMP.setPosition(px, py, pz);
 							CommonProxy.wrapper.sendTo(new PacketPlayerPosition(px, py, pz), playerMP);
-							if (OpenTeleporter.logging) {
+							if (Config.logging) {
 								OpenTeleporter.logger.info(playerMP.getDisplayName() + "| teleportated of |" + xCoord + " " + yCoord + " " + zCoord + "| at |" + zCoord + " " + zCoord + " " + zCoord);
 							}
 						} else {
@@ -168,15 +161,14 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 					}
 				}
 			}else{
-				a[0] = "uuid not found.";
+				return new Object[]{"uuid not found."};
 			}
 		}
 		return null;
 	}
 
 	public boolean verifyEntities(List<Entity> entities, int x, int y, int z){
-		World world = worldObj;
-		List<Entity> entities1 = world.getEntitiesWithinAABB(Entity.class, AxisAlignedBB.getBoundingBox(x, y, z, x+1, y+2, z+1));
+		List<Entity> entities1 = getEntitiesInBound(Entity.class, worldObj, x, y, z, x+1, y+2, z+1);
 		if(entities.size() == entities1.size()){
 			for(int i = 0; i < entities.size(); i++){
 				boolean tmp = false;
@@ -199,9 +191,10 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 	@Callback
 	public Object[] getEntitiesId(Context context, Arguments arguments){
 		try{
-			World world = worldObj;
 			Object[] a = null;
-			List<Entity> entities = world.getEntitiesWithinAABB(Entity.class, AxisAlignedBB.getBoundingBox(xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1));
+			List<Entity> entities = getEntitiesInBound(Entity.class, worldObj, xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1);
+			if(entities.size() == 0 || entities.size() > Config.entityTeleportationLimit)
+				return new Object[]{"Entity limit."};
 			if(entities != null && entities.size() > 0){
 				a = new Object[1];
 				for(int z = 0; z < 30; z++){
@@ -214,8 +207,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 					}
 				}
 			}else{
-				a = new Object[1];
-				a[0] = "Entities not found.";
+				return new Object[]{"Entities not found."};
 			}
 			return a;
 		}catch(Exception e){
@@ -232,7 +224,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 				Iterable<Node> nodes = node.reachableNodes();
 				for(Node n : nodes){
 					if(!n.address().isEmpty() && address.equals(n.address())){
-						double energy = Math.pow(distance(node, n), OpenTeleporter.pow);
+						double energy = Math.pow(distance(node, n), Config.pow);
 						Object[] a = new Object[1];
 						a[0] = energy;
 						return a;
@@ -305,5 +297,9 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 		}else{
 			return false;
 		}
+	}
+
+	private static List<Entity> getEntitiesInBound(Class c, World world, int minx, int miny, int minz, int maxx, int maxy, int maxz){
+		return world.getEntitiesWithinAABB(c, AxisAlignedBB.getBoundingBox(minx, miny, minz, maxx, maxy, maxz));
 	}
 }
