@@ -1,0 +1,16 @@
+[
+{
+  "modid": "OpenTeleporter",
+  "name": "OpenTeleporter",
+  "description": "OpenTeleporter this addon for OpenComputers adding teleports .",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["NEO"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
