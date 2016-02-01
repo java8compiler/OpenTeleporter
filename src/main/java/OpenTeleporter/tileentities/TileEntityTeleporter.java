@@ -28,7 +28,6 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 	public static TimerTask task = new TimerTask() {
 		@Override
 		public void run() {
-			System.out.println(uuids.size());
 			for(Map.Entry<String, EntityId> entries : uuids.entrySet()){
 				if(!entries.getValue().live)
 					uuids.remove(entries.getKey());
