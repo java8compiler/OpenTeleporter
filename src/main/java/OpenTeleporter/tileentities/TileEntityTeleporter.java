@@ -290,11 +290,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 		double dy = Math.pow(y2-y1, 2);
 		double dz = Math.pow(z2-z1, 2);
 		double res = dx+dy+dz;
-		if(res > 0){
-			return Math.abs(Math.sqrt(res));
-		}else{
-			return 0;
-		}
+		return Math.abs(Math.sqrt(res));
 	}
 
 	@Override
