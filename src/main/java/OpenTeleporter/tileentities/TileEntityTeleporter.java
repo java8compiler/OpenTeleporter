@@ -44,7 +44,6 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 		if(!arguments.checkString(0).isEmpty()){
 			String address = arguments.checkString(0);
 			Iterable<Node> nodes = node.reachableNodes();
-			boolean teleport = false;
 			for(Node n : nodes){
 				World world = worldObj;
 				if(address.equals(n.address())){
@@ -54,7 +53,6 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 					if(!connector.tryChangeBuffer(-energy)){
 						throw new Exception("not enough energy");
 					}
-					teleport = true;
 					TileEntityTeleporter teleporter = (TileEntityTeleporter) n.host();
 					if(world.isAirBlock(teleporter.xCoord, teleporter.yCoord+1, teleporter.zCoord) && world.isAirBlock(teleporter.xCoord, teleporter.yCoord+2, teleporter.zCoord)){
 						List<Entity> entities = getEntitiesInBound(Entity.class, worldObj, xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1);
