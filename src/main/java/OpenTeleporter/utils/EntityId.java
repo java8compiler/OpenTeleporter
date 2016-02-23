@@ -1,5 +1,6 @@
-package OpenTeleporter;
+package OpenTeleporter.utils;
 
+import OpenTeleporter.Config;
 import net.minecraft.entity.Entity;
 
 import java.util.List;

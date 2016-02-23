@@ -1,12 +1,12 @@
 package OpenTeleporter.tileentities;
 
 import OpenTeleporter.Config;
-import OpenTeleporter.EntityId;
 import OpenTeleporter.OpenTeleporter;
 import OpenTeleporter.packet.PacketPlayerPosition;
 import OpenTeleporter.packet.PacketTeleporter;
 import OpenTeleporter.proxy.CommonProxy;
-import li.cil.oc.api.*;
+import OpenTeleporter.utils.EntityId;
+import OpenTeleporter.utils.UuidList;
 import li.cil.oc.api.machine.Arguments;
 import li.cil.oc.api.machine.Callback;
 import li.cil.oc.api.machine.Context;
@@ -20,21 +20,10 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
 public class TileEntityTeleporter extends TileEntityEnvironment implements SimpleComponent, Analyzable, SidedEnvironment{
-	public static HashMap<String, EntityId> uuids = new HashMap<String, EntityId>();
-	public static Timer timer = new Timer();
-	public static TimerTask task = new TimerTask() {
-		@Override
-		public void run() {
-			for(Map.Entry<String, EntityId> entries : uuids.entrySet()){
-				if(!entries.getValue().live)
-					uuids.remove(entries.getKey());
-				entries.getValue().update();
-			}
-		}
-	};
 
 
 	public TileEntityTeleporter() {
@@ -50,7 +39,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 		return "open_teleporter";
 	}
 
-	@Callback
+	@Callback(doc="eleports all the entities on the teleporter to another teleporter with the given name.")
 	public Object[] teleport(Context context, Arguments arguments) throws Exception{
 		if(!arguments.checkString(0).isEmpty()){
 			String address = arguments.checkString(0);
@@ -59,84 +48,73 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 			for(Node n : nodes){
 				World world = worldObj;
 				if(address.equals(n.address())){
-					if(API.isPowerEnabled){
-						double energy = Math.pow(distance(node, n), 3);
-							Connector connector = (Connector) node;
-							if(connector.globalBuffer() >= energy){
-								double out = connector.changeBuffer(-energy);
-								if(out > 0){
-									return new Object[]{"We need more energy."};
+					Connector connector = (Connector) node;
+					double energy = Math.pow(distance(node, n), 3);
+
+					if(!connector.tryChangeBuffer(-energy)){
+						throw new Exception("not enough energy");
+					}
+					teleport = true;
+					TileEntityTeleporter teleporter = (TileEntityTeleporter) n.host();
+					if(world.isAirBlock(teleporter.xCoord, teleporter.yCoord+1, teleporter.zCoord) && world.isAirBlock(teleporter.xCoord, teleporter.yCoord+2, teleporter.zCoord)){
+						List<Entity> entities = getEntitiesInBound(Entity.class, worldObj, xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1);
+						if(entities.size() == 0  || entities.size() > Config.entityTeleportationLimit){
+							throw new Exception("entity limit.");
+						}
+						for (Entity currentEntity : entities) {
+							double dx, dy, dz;
+							dx = currentEntity.posX - xCoord;
+							dy = currentEntity.posY - yCoord;
+							dz = currentEntity.posZ - zCoord;
+							if (currentEntity instanceof EntityPlayerMP) {
+								EntityPlayerMP playerMP = (EntityPlayerMP) currentEntity;
+								double px, py, pz;
+								px = teleporter.xCoord + dx;
+								py = teleporter.yCoord + dy;
+								pz = teleporter.zCoord + dz;
+								playerMP.setPosition(px, py, pz);
+								CommonProxy.wrapper.sendTo(new PacketPlayerPosition(px, py, pz), playerMP);
+								if (Config.logging) {
+									OpenTeleporter.logger.info(playerMP.getDisplayName() + "| teleportated of |" + xCoord + " " + yCoord + " " + zCoord + "| at |" + teleporter.zCoord + " " + teleporter.zCoord + " " + teleporter.zCoord);
 								}
-							}else{
-								return new Object[]{"We need more energy."};
+							} else {
+								currentEntity.setPosition(teleporter.xCoord + dx, teleporter.yCoord + dy, teleporter.zCoord + dz);
 							}
 						}
-						teleport = true;
-						TileEntityTeleporter teleporter = (TileEntityTeleporter) n.host();
-						if(world.isAirBlock(teleporter.xCoord, teleporter.yCoord+1, teleporter.zCoord) && world.isAirBlock(teleporter.xCoord, teleporter.yCoord+2, teleporter.zCoord)){
-							List<Entity> entities = getEntitiesInBound(Entity.class, worldObj, xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1);
-							if(entities.size() == 0  || entities.size() > Config.entityTeleportationLimit){
-								return new Object[]{"Entity limit."};
-							}
-							for (Entity entity1 : entities) {
-								double dx, dy, dz;
-								dx = entity1.posX - xCoord;
-								dy = entity1.posY - yCoord;
-								dz = entity1.posZ - zCoord;
-								if (entity1 instanceof EntityPlayerMP) {
-									EntityPlayerMP playerMP = (EntityPlayerMP) entity1;
-									double px, py, pz;
-									px = teleporter.xCoord + dx;
-									py = teleporter.yCoord + dy;
-									pz = teleporter.zCoord + dz;
-									playerMP.setPosition(px, py, pz);
-									CommonProxy.wrapper.sendTo(new PacketPlayerPosition(px, py, pz), playerMP);
-									if (Config.logging) {
-										OpenTeleporter.logger.info(playerMP.getDisplayName() + "| teleportated of |" + xCoord + " " + yCoord + " " + zCoord + "| at |" + teleporter.zCoord + " " + teleporter.zCoord + " " + teleporter.zCoord);
-									}
-								} else {
-									entity1.setPosition(teleporter.xCoord + dx, teleporter.yCoord + dy, teleporter.zCoord + dz);
-								}
-							}
-						}
-						CommonProxy.wrapper.sendToAll(new PacketTeleporter(xCoord, yCoord, zCoord));
+					}
+					CommonProxy.wrapper.sendToAll(new PacketTeleporter(xCoord, yCoord, zCoord));
 					CommonProxy.wrapper.sendToAll(new PacketTeleporter(teleporter.xCoord, teleporter.yCoord, teleporter.zCoord));
 					}
 					if(teleport){
-						return new Object[]{"teleportation successful"};
+						return new Object[]{true};
 					}else{
-						return new Object[]{"teleportation failed, teleporter not found."};
+						throw new Exception("teleportation failed, teleporter not found.");
 					}
 				}
 			}
 		return null;
 	}
 
-	@Callback
-	public Object[] teleportById(Context context, Arguments arguments){
+	@Callback(doc="teleports entities with the given UUID.")
+	public Object[] teleportById(Context context, Arguments arguments) throws Exception{
 		if(!arguments.checkString(0).isEmpty()){
 			Object[] a = new Object[1];
 			String uuid = arguments.checkString(0);
-			if(uuids.containsKey(uuid)){
-				EntityId entityId = uuids.get(uuid);
-				uuids.remove(uuid);
+			if(UuidList.isUuid(uuid)){
+				EntityId entityId = UuidList.removeUuid(uuid);
+				if(entityId == null)
+					throw new Exception("uuid not found.");
 				TileEntity tileEntity = worldObj.getTileEntity(entityId.x, entityId.y, entityId.z);
 				if(tileEntity instanceof TileEntityTeleporter && verifyEntities(entityId.entity, entityId.x, entityId.y, entityId.z)){
-					if(API.isPowerEnabled){
-						double energy = Math.pow(distance(entityId.x, entityId.y, entityId.z, xCoord, yCoord, zCoord), 3);
-						Connector connector = (Connector) node;
-						if(connector.globalBuffer() >= energy){
-							double out = connector.changeBuffer(-energy);
-							if(out > 0){
-								return new Object[]{"We need more energy."};
-							}
-						}else{
-							return new Object[]{"We need more energy."};
-						}
+					Connector connector = (Connector) node;
+					double energy = Math.pow(distance(node, ((TileEntityTeleporter) tileEntity).node), Config.pow);
+					if(!connector.tryChangeBuffer(-energy)){
+						throw new Exception("We need more energy.");
 					}
 					List<Entity> entities = entityId.entity;
 					if(entities.size() == 0 || entities.size() > Config.entityTeleportationLimit)
-						return new Object[]{"Entity limit."};
+						throw new Exception("entity limit.");
+
 					for(int i = 0; i < entities.size(); i++) {
 						double dx, dy, dz;
 						Entity entity = entities.get(i);
@@ -160,10 +138,79 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 					}
 				}
 			}else{
-				return new Object[]{"uuid not found."};
+				throw new Exception("uuid not found.");
 			}
 		}
 		return null;
+	}
+
+	@Callback(doc="returns entities on the teleporter and their UUIDs.")
+	public Object[] getEntitiesId(Context context, Arguments arguments) throws Exception{
+		try{
+			List<Entity> entities = getEntitiesInBound(Entity.class, worldObj, xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1);
+			if(entities.size() == 0 || entities.size() > Config.entityTeleportationLimit)
+				throw new Exception("entity limit.");
+				if(entities != null && entities.size() > 0){
+				for(int z = 0; z < 30; z++){
+					String uuid = UUID.randomUUID().toString();
+					if(!UuidList.isUuid(uuid)){
+						EntityId entityId = new EntityId(entities, xCoord, yCoord, zCoord);
+						UuidList.addUuid(uuid, entityId);
+						return new Object[]{uuid};
+					}
+				}
+			}else{
+					throw new Exception("entities not found.");
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	@Callback(doc="returns the amount of energy for teleporting.")
+	public Object[] getEnergyToTeleport(Context context, Arguments arguments) throws Exception{
+		try{
+			if(!arguments.checkString(0).isEmpty()){
+				String address = arguments.checkString(0);
+				Iterable<Node> nodes = node.reachableNodes();
+				for(Node n : nodes){
+					if(!n.address().isEmpty() && address.equals(n.address())){
+						return new Object[]{Math.pow(distance(node, n), Config.pow)};
+					}
+				}
+				throw new Exception("teleporter not found.");
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	@Callback(doc="returns the distance between teleporters.")
+	public Object[] getDistance(Context context, Arguments arguments) throws Exception{
+		if(!arguments.checkString(0).isEmpty()){
+			String address = arguments.checkString(0);
+			Iterable<Node> nodes = node.reachableNodes();
+			for(Node n : nodes){
+				if(!n.address().isEmpty() && address.equals(n.address())){
+					return new Object[]{distance(node, n)};
+				}
+			}
+		}
+		throw new Exception("teleporter not found.");
+	}
+
+	@Callback(doc="returns the distance using uuid")
+	public Object[] getDistanceByUuid(Context context, Arguments arguments) throws Exception{
+		if(!arguments.checkString(0).isEmpty()){
+			String uuid = arguments.checkString(0);
+			if(UuidList.isUuid(uuid)){
+				EntityId entityId = UuidList.getEntityId(uuid);
+				return new Object[]{distance(xCoord, yCoord, zCoord, entityId.x, entityId.y, entityId.z)};
+			}
+		}
+		throw new IllegalArgumentException("Illegal arguments");
 	}
 
 	public boolean verifyEntities(List<Entity> entities, int x, int y, int z){
@@ -187,79 +234,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 		}
 	}
 
-	@Callback
-	public Object[] getEntitiesId(Context context, Arguments arguments){
-		try{
-			Object[] a = null;
-			List<Entity> entities = getEntitiesInBound(Entity.class, worldObj, xCoord, yCoord, zCoord, xCoord+1, yCoord+2, zCoord+1);
-			if(entities.size() == 0 || entities.size() > Config.entityTeleportationLimit)
-				return new Object[]{"Entity limit."};
-			if(entities != null && entities.size() > 0){
-				a = new Object[1];
-				for(int z = 0; z < 30; z++){
-					String uuid = UUID.randomUUID().toString();
-					if(!uuids.containsKey(uuid)){
-						EntityId entityId = new EntityId(entities, xCoord, yCoord, zCoord);
-						uuids.put(uuid, entityId);
-						a[0] = uuid;
-						break;
-					}
-				}
-			}else{
-				return new Object[]{"Entities not found."};
-			}
-			return a;
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-		return null;
-	}
-
-	@Callback
-	public Object[] getEnergyToTeleport(Context context, Arguments arguments) throws Exception{
-		try{
-			if(!arguments.checkString(0).isEmpty()){
-				String address = arguments.checkString(0);
-				Iterable<Node> nodes = node.reachableNodes();
-				for(Node n : nodes){
-					if(!n.address().isEmpty() && address.equals(n.address())){
-						double energy = Math.pow(distance(node, n), Config.pow);
-						Object[] a = new Object[1];
-						a[0] = energy;
-						return a;
-					}
-				}
-				return new Object[]{"teleporter not found."};
-			}
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-		return null;
-	}
-
-	@Callback
-	public Object[] getDistance(Context context, Arguments arguments) throws Exception{
-		try{
-			if(!arguments.checkString(0).isEmpty()){
-				String address = arguments.checkString(0);
-				Iterable<Node> nodes = node.reachableNodes();
-				for(Node n : nodes){
-					if(!n.address().isEmpty() && address.equals(n.address())){
-						double distance = distance(node, n);
-						Object[] a = new Object[1];
-						a[0] = distance;
-						return a;
-					}
-				}
-				return new Object[]{"teleporter not found."};
-			}
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-		return null;
-	}
-
-	public double distance(Node n1, Node n2){
+	protected double distance(Node n1, Node n2){
 		TileEntity te1 = (TileEntity) n1.host();
 		TileEntity te2 = (TileEntity) n2.host();
 		if(te1 != null && te2 != null){
@@ -272,7 +247,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 		return 0;
 	}
 
-	public double distance(double x1,double y1,double z1, double x2,double y2,double z2){
+	protected double distance(double x1,double y1,double z1, double x2,double y2,double z2){
 		double dx = Math.pow(x2-x1, 2);
 		double dy = Math.pow(y2-y1, 2);
 		double dz = Math.pow(z2-z1, 2);
@@ -298,7 +273,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 		}
 	}
 
-	private static List<Entity> getEntitiesInBound(Class c, World world, int minx, int miny, int minz, int maxx, int maxy, int maxz){
+	protected static List<Entity> getEntitiesInBound(Class c, World world, int minx, int miny, int minz, int maxx, int maxy, int maxz){
 		return world.getEntitiesWithinAABB(c, AxisAlignedBB.getBoundingBox(minx, miny, minz, maxx, maxy, maxz));
 	}
 }

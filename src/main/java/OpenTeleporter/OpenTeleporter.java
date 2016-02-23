@@ -1,7 +1,7 @@
 package OpenTeleporter;
 
 import OpenTeleporter.proxy.CommonProxy;
-import OpenTeleporter.tileentities.TileEntityTeleporter;
+import OpenTeleporter.utils.UuidList;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.SidedProxy;
@@ -30,7 +30,7 @@ public class OpenTeleporter {
 	@EventHandler
 	public void init(FMLInitializationEvent e) {
 	    proxy.init(e);
-		TileEntityTeleporter.timer.schedule(TileEntityTeleporter.task, 1000, 1000);
+		UuidList.timer.schedule(UuidList.task, 1000, 1000);
 	}
 
 	@EventHandler
