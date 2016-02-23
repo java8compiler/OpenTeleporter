@@ -84,14 +84,11 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 					}
 					CommonProxy.wrapper.sendToAll(new PacketTeleporter(xCoord, yCoord, zCoord));
 					CommonProxy.wrapper.sendToAll(new PacketTeleporter(teleporter.xCoord, teleporter.yCoord, teleporter.zCoord));
-					}
-					if(teleport){
-						return new Object[]{true};
-					}else{
-						throw new Exception("teleportation failed, teleporter not found.");
-					}
+					return new Object[]{true};
 				}
+					throw new Exception("teleportation failed, teleporter not found.");
 			}
+		}
 		return null;
 	}
 
@@ -163,7 +160,7 @@ public class TileEntityTeleporter extends TileEntityEnvironment implements Simpl
 					throw new Exception("entities not found.");
 			}
 		}catch(Exception e){
-			e.printStackTrace();
+			throw new Exception("error");
 		}
 		return null;
 	}
